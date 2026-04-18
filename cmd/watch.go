@@ -84,7 +84,7 @@ func runWatch(cmd *cobra.Command, args []string) error {
 
 	fmt.Println(color.CyanString("▶ KuberNeet Watch Mode"))
 	fmt.Println("Watching for security issues in real-time...")
-	fmt.Println("Press Ctrl+C to stop\n")
+	fmt.Println("Press Ctrl+C to stop")
 
 	// Run informer-based watch
 	return runInformerWatch(ctx, s)

@@ -9,8 +9,9 @@ import (
 	"github.com/raphael/kuberneet/pkg/finding"
 )
 
-//go:embed ../../policies/*.rego
-//go:embed ../../policies/**/*.rego
+//go:embed policies/*.rego
+//go:embed policies/pod/*.rego
+//go:embed policies/rbac/*.rego
 var policyFS embed.FS
 
 type Engine struct {
@@ -81,6 +82,15 @@ func (e *Engine) parseViolations(result *sdk.DecisionResult) []finding.Finding {
 			continue
 		}
 
+		resourceKind := ""
+		resourceName := ""
+		namespace := ""
+		if meta, ok := violation["metadata"].(map[string]interface{}); ok {
+			resourceKind = getString(meta, "kind")
+			resourceName = getString(meta, "name")
+			namespace = getString(meta, "namespace")
+		}
+		
 		finding := finding.Finding{
 			ID:          getString(violation, "id"),
 			Severity:    getString(violation, "severity"),
@@ -90,9 +100,9 @@ func (e *Engine) parseViolations(result *sdk.DecisionResult) []finding.Finding {
 			CWE:         getString(violation, "cwe"),
 			MITRE:       getString(violation, "mitre"),
 			Remediation: getString(violation, "remediation"),
-			ResourceKind: getString(violation["metadata"], "kind"),
-			ResourceName: getString(violation["metadata"], "name"),
-			Namespace:    getString(violation["metadata"], "namespace"),
+			ResourceKind: resourceKind,
+			ResourceName: resourceName,
+			Namespace:    namespace,
 		}
 		findings = append(findings, finding)
 	}

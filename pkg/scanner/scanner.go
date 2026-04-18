@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/raphael/kuberneet/pkg/finding"
@@ -15,11 +14,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/homedir"
 )
 
 type Options struct {
 	Kubeconfig string
+	Context    string
 	Namespace  string
 	Severity   string
 	WithRemedy bool
@@ -39,18 +38,20 @@ func New(opts Options) (*Scanner, error) {
 	var config *rest.Config
 	var err error
 
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	if opts.Kubeconfig != "" {
-		config, err = clientcmd.BuildConfigFromFlags("", opts.Kubeconfig)
-	} else {
-		// Try in-cluster config first
-		config, err = rest.InClusterConfig()
-		if err != nil {
-			// Fall back to kubeconfig
-			home := homedir.HomeDir()
-			kubeconfig := filepath.Join(home, ".kube", "config")
-			config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
-		}
+		loadingRules.ExplicitPath = opts.Kubeconfig
 	}
+
+	configOverrides := &clientcmd.ConfigOverrides{}
+	if opts.Context != "" {
+		configOverrides.CurrentContext = opts.Context
+	}
+
+	config, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		loadingRules,
+		configOverrides,
+	).ClientConfig()
 
 	if err != nil {
 		return nil, fmt.Errorf("unable to load kubeconfig: %w", err)

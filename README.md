@@ -37,6 +37,15 @@ go build -o bin/kuberneet ./cmd/kuberneet
 
 # Show details with remediation
 ./bin/kuberneet scan --remediate
+
+# Build attack graph
+./bin/kuberneet graph
+
+# Export graph as JSON
+./bin/kuberneet graph --output kuberneet-graph.json
+
+# Real-time watch mode (informers)
+./bin/kuberneet watch
 ```
 
 ## Security Checks (Phase 1)
@@ -88,18 +97,27 @@ Total: 19 findings
 ## Architecture
 
 ```
-┌─────────────────────────────────────────┐
-│ CLI (Cobra + Viper)                     │
-├─────────────────────────────────────────┤
-│ Scanner (client-go)                       │
-│ ├── Pod checks                          │
-│ ├── Deployment checks                   │
-│ └── RBAC analysis                       │
-├─────────────────────────────────────────┤
-│ Policy Engine (OPA/Rego → Phase 2)        │
-├─────────────────────────────────────────┤
-│ Output: Table | JSON | YAML               │
-└─────────────────────────────────────────┘
+┌──────────────────────────────────────────────┐
+│ CLI (Cobra + Viper)                          │
+│ ├── scan - cluster/manifest scanning         │
+│ ├── graph - attack path analysis             │
+│ └── watch - real-time informer monitoring    │
+├──────────────────────────────────────────────┤
+│ Scanner (client-go Informers)                │
+│ ├── Pod security checks                      │
+│ ├── RBAC analysis                            │
+│ └── Real-time event streaming                │
+├──────────────────────────────────────────────┤
+│ Policy Engine (OPA/Rego)                     │
+│ ├── policies/pod/escapes.rego                │
+│ ├── policies/rbac/wildcards.rego             │
+│ └── Risk scoring (CWE/MITRE)                 │
+├──────────────────────────────────────────────┤
+│ Attack Graph Engine                          │
+│ ├── Service → Pod → SA → Role graph          │
+│ ├── Path finding (BFS)                       │
+│ └── Risk scoring algorithm                   │
+└──────────────────────────────────────────────┘
 ```
 
 ## Roadmap
@@ -112,12 +130,19 @@ Total: 19 findings
 - CWE/MITRE mappings
 - Remediation generation
 
-**Phase 2** (TODO)
+**Phase 2** ✅ DONE
 - OPA/Rego policy engine
 - Informers for real-time scanning
 - Attack path graph generation
+- RBAC privilege escalation detection
+
+**Phase 3** (TODO)
 - NetworkPolicy analysis
 - CIS v1.12 controls
+- kubectl plugin
+- CI/CD integrations (GitHub Actions)
+- HTML report with D3 visualization
+- Prometheus metrics
 
 **Phase 3** (TODO)
 - kubectl plugin

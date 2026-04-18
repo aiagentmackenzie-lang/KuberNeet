@@ -1,0 +1,58 @@
+# Binaries
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Go
+vendor/
+go.work
+go.work.sum
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Test coverage
+*.cover
+*.cov
+coverage.txt
+coverage.html
+
+# Build artifacts
+dist/
+build/
+
+# Secrets (never commit)
+*.pem
+*.key
+*.crt
+*.cert
+.env
+.env.local
+kubeconfig
+*secret*
+*token*
+*.jwt
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
+
+# Debug
+debug/
+__debug_bin

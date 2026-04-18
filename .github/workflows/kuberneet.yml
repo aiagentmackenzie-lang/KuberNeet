@@ -1,0 +1,42 @@
+name: KuberNeet Security Scan
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup KuberNeet
+        run: |
+          curl -L https://github.com/raphael/kuberneet/releases/latest/download/kuberneet-linux-amd64 -o kuberneet
+          chmod +x kuberneet
+          sudo mv kuberneet /usr/local/bin/
+
+      - name: Run KuberNeet Scan
+        run: |
+          kuberneet scan --output sarif --output-file kuberneet-results.sarif || true
+          kuberneet report --html --output kuberneet-report.html || true
+        continue-on-error: true
+
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: hashFiles('kuberneet-results.sarif') != ''
+        with:
+          sarif_file: kuberneet-results.sarif
+          category: kuberneet
+
+      - name: Upload Report
+        uses: actions/upload-artifact@v4
+        if: hashFiles('kuberneet-report.html') != ''
+        with:
+          name: kuberneet-report
+          path: kuberneet-report.html

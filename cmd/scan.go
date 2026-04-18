@@ -44,6 +44,9 @@ Examples:
   # Output as JSON for CI/CD
   kuberneet scan --output json
 
+  # Output as SARIF for GitHub Code Scanning
+  kuberneet scan --output sarif
+
   # Show only critical findings
   kuberneet scan --severity CRITICAL`,
 	RunE: runScan,
@@ -54,7 +57,7 @@ func init() {
 
 	scanCmd.Flags().StringVarP(&scanOpts.namespace, "namespace", "n", "", "Target namespace (default: all)")
 	scanCmd.Flags().StringVarP(&scanOpts.manifest, "manifest", "m", "", "Scan local YAML manifest")
-	scanCmd.Flags().StringVarP(&scanOpts.output, "output", "o", "table", "Output format: table|json|yaml")
+	scanCmd.Flags().StringVarP(&scanOpts.output, "output", "o", "table", "Output format: table|json|yaml|sarif")
 	scanCmd.Flags().StringVarP(&scanOpts.severity, "severity", "s", "", "Filter by severity: CRITICAL|HIGH|MEDIUM|LOW")
 	scanCmd.Flags().BoolVarP(&scanOpts.withRemedy, "remediate", "r", false, "Include remediation YAML in output")
 }
@@ -121,6 +124,8 @@ func outputResults(findings []finding.Finding, format string, withRemedy bool, s
 		return finding.JSONOutput(findings, withRemedy)
 	case "yaml":
 		return finding.YAMLOutput(findings, withRemedy)
+	case "sarif":
+		return finding.SARIFOutput(findings, withRemedy)
 	default:
 		return tableOutput(findings, withRemedy, scanType)
 	}

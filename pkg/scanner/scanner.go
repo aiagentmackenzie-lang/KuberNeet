@@ -108,6 +108,27 @@ func (s *Scanner) ScanCluster(ctx context.Context) ([]finding.Finding, error) {
 	}
 	findings = append(findings, rbacFindings...)
 
+	// Scan NetworkPolicies
+	networkFindings, err := s.scanNetworkPolicies(ctx)
+	if err != nil {
+		// NetworkPolicy is optional - may not be available
+		if s.verbose {
+			fmt.Printf("Warning: NetworkPolicy scan failed: %v\n", err)
+		}
+	} else {
+		findings = append(findings, networkFindings...)
+	}
+
+	// Scan CIS Benchmarks (requires node access, optional)
+	cisFindings, err := s.scanCIS(ctx)
+	if err != nil {
+		if s.verbose {
+			fmt.Printf("Warning: CIS scan failed: %v\n", err)
+		}
+	} else {
+		findings = append(findings, cisFindings...)
+	}
+
 	return s.filterBySeverity(findings), nil
 }
 

@@ -1,0 +1,47 @@
+apiVersion: krew.googlecontainertools.github.com/v1alpha2
+kind: Plugin
+metadata:
+  name: kuberneet
+spec:
+  version: v0.1.0
+  homepage: https://github.com/raphael/kuberneet
+  shortDescription: Kubernetes security scanner with attack graph
+  description: |
+    KuberNeet is a security scanner for Kubernetes that identifies
+    container escape vulnerabilities, RBAC misconfigurations, and
+    generates attack path graphs. Unlike other scanners, KuberNeet
+    explains WHY issues are insecure and provides exact remediation.
+  caveats: |
+    * Requires access to Kubernetes cluster with permissions to
+      list pods, deployments, roles, and networkpolicies
+    * Some CIS checks may require privileged node access
+  platforms:
+    - selector:
+        matchLabels:
+          os: darwin
+          arch: amd64
+      uri: https://github.com/raphael/kuberneet/releases/download/v0.1.0/kuberneet-darwin-amd64.tar.gz
+      sha256: REPLACE_WITH_SHA256
+      bin: kuberneet
+    - selector:
+        matchLabels:
+          os: darwin
+          arch: arm64
+      uri: https://github.com/raphael/kuberneet/releases/download/v0.1.0/kuberneet-darwin-arm64.tar.gz
+      sha256: REPLACE_WITH_SHA256
+      bin: kuberneet
+    - selector:
+        matchLabels:
+          os: linux
+          arch: amd64
+      uri: https://github.com/raphael/kuberneet/releases/download/v0.1.0/kuberneet-linux-amd64.tar.gz
+      sha256: REPLACE_WITH_SHA256
+      bin: kuberneet
+    - selector:
+        matchLabels:
+          os: linux
+          arch: arm64
+      uri: https://github.com/raphael/kuberneet/releases/download/v0.1.0/kuberneet-linux-arm64.tar.gz
+      sha256: REPLACE_WITH_SHA256
+      bin: kuberneet
+  shortDescription: Kubernetes security scanner

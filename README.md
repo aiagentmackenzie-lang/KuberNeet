@@ -124,29 +124,6 @@ Total: 19 findings
 
 **Phase 1** ✅ DONE
 - Core CLI with Cobra
-- Client-go cluster scanning
-- 15+ security checks
-- JSON/YAML output
-- CWE/MITRE mappings
-- Remediation generation
-
-**Phase 2** ✅ DONE
-- OPA/Rego policy engine
-- Informers for real-time scanning
-- Attack path graph generation
-- RBAC privilege escalation detection
-
-**Phase 3** (TODO)
-- NetworkPolicy analysis
-- CIS v1.12 controls
-- kubectl plugin
-- CI/CD integrations (GitHub Actions)
-- HTML report with D3 visualization
-- Prometheus metrics
-
-**Phase 3** (TODO)
-- kubectl plugin
-- CI/CD integrations (GitHub Actions)
 - HTML report with D3 visualization
 - Prometheus metrics
 
@@ -169,3 +146,77 @@ MIT
 
 ---
 *Built by Agent Mackenzie + Raphael | Security Apps • KuberNeet v0.1.0*
+
+## Roadmap
+
+All phases complete.
+
+**Phase 1** ✅ Core scanner with 15+ checks
+**Phase 2** ✅ OPA/Rego engine + attack graph
+**Phase 3** ✅ NetworkPolicy + CIS + CI/CD + HTML reports
+
+
+### NetworkPolicy Security (Phase 3)
+| ID | Check | Severity | CWE |
+|----|-------|----------|-----|
+| NET-001 | Missing default-deny | HIGH | CWE-284 |
+| NET-002 | Allows 0.0.0.0/0 | CRITICAL | CWE-284 |
+| NET-003 | Broad rules on all pods | MEDIUM | CWE-284 |
+| NET-004 | Unrestricted egress | MEDIUM | CWE-284 |
+
+### CIS Benchmarks (Phase 3)
+| ID | Check | Severity |
+|----|-------|----------|
+| CIS-1.2.1 | Anonymous auth disabled | CRITICAL |
+| CIS-1.2.6 | RBAC authorization | CRITICAL |
+| CIS-4.2.1 | Kubelet anonymous auth | CRITICAL |
+
+## CI/CD Integration
+
+### GitHub Actions
+
+Create `.github/workflows/security.yml`:
+
+```yaml
+name: Security Scan
+on: [push, pull_request]
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run KuberNeet
+        run: |
+          curl -L https://github.com/raphael/kuberneet/releases/download/v0.1.0/kuberneet-linux-amd64 -o kuberneet
+          chmod +x kuberneet
+          ./kuberneet scan --output sarif --output-file results.sarif
+          
+      - name: Upload to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
+```
+
+## kubectl Plugin
+
+Install via krew:
+
+```bash
+kubectl krew index add raphael https://github.com/raphael/kuberneet
+kubectl krew install raphael/kuberneet
+kubectl kuberneet scan
+kubectl kuberneet graph
+```
+
+## Generate HTML Report
+
+```bash
+# Interactive HTML report with D3 visualization
+kuberneet report --html --output security-report.html
+
+# Open in browser
+open security-report.html
+```
+

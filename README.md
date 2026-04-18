@@ -120,26 +120,6 @@ Total: 19 findings
 └──────────────────────────────────────────────┘
 ```
 
-## Roadmap
-
-**Phase 1** ✅ DONE
-- Core CLI with Cobra
-- HTML report with D3 visualization
-- Prometheus metrics
-
-## Development
-
-```bash
-# Build
-go build -o bin/kuberneet ./cmd/kuberneet
-
-# Test
-go test ./...
-
-# Run locally
-./bin/kuberneet scan --verbose
-```
-
 ## License
 
 MIT
@@ -149,7 +129,9 @@ MIT
 
 ## Roadmap
 
-All phases complete.
+# Roadmap
+
+KuberNeet v0.1.0 complete with all planned features.
 
 **Phase 1** ✅ Core scanner with 15+ checks
 **Phase 2** ✅ OPA/Rego engine + attack graph
@@ -219,4 +201,73 @@ kuberneet report --html --output security-report.html
 # Open in browser
 open security-report.html
 ```
+
+
+## Multi-Cluster Scanning
+
+```bash
+# Scan all clusters defined in kubeconfig
+kuberneet multi
+
+# Scan specific kubeconfig
+kuberneet multi --kubeconfig ~/.kube/config
+
+# JSON output
+kuberneet multi --output json
+```
+
+## Admission Webhook
+
+Deploy the admission controller to enforce security policies:
+
+```bash
+# Deploy webhook
+cat deploy/admission-webhook.yaml | sed 's/${TLS_CRT_B64}/YOUR_CERT/' | \
+  sed 's/${TLS_KEY_B64}/YOUR_KEY/' | kubectl apply -f -
+
+# Run webhook locally (for testing)
+kuberneet webhook --cert server.crt --key server.key --mutate
+```
+
+### Auto-Mutation Mode
+
+Enable mutation to automatically fix security issues:
+
+```yaml
+# Automatically applied to all pods:
+spec:
+  securityContext:
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      runAsNonRoot: true
+      capabilities:
+        drop: ["ALL"]
+  automountServiceAccountToken: false
+```
+
+## Complete Feature Matrix
+
+| Feature | CLI | Webhook | Status |
+|---------|-----|---------|--------|
+| Pod Security | ✅ | ✅ | Complete |
+| RBAC Analysis | ✅ | ❌ | CLI only |
+| NetworkPolicy | ✅ | ❌ | CLI only |
+| CIS Benchmarks | ✅ | ❌ | CLI only |
+| Attack Graph | ✅ | ❌ | CLI only |
+| Real-time Watch | ✅ | ❌ | CLI only |
+| Multi-cluster | ✅ | ❌ | CLI only |
+| Auto-mutation | ❌ | ✅ | Webhook only |
+
+## Total Security Checks
+
+- **Container Security**: 15+ checks (POD-001 to POD-015)
+- **RBAC Security**: 7+ checks (RBAC-001 to RBAC-007)  
+- **NetworkPolicy**: 4 checks (NET-001 to NET-004)
+- **CIS Benchmarks**: 8 checks (CIS-1.2.x, CIS-4.2.x)
+
+**Total: 30+ security checks**
 

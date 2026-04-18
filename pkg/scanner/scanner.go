@@ -165,6 +165,16 @@ func shouldInclude(findingSev, filterSev string) bool {
 	return severityOrder[findingSev] >= severityOrder[filterSev]
 }
 
+// GetClientset returns the kubernetes clientset
+func (s *Scanner) GetClientset() *kubernetes.Clientset {
+	return s.clientset
+}
+
+// CheckPod runs security checks on a single pod (public API)
+func (s *Scanner) CheckPod(pod *corev1.Pod) []finding.Finding {
+	return s.checkPodSecurity(pod)
+}
+
 // Interface compliance
 var _ informers.SharedInformerFactory = nil
 var _ runtime.Object = (*corev1.Pod)(nil)

@@ -18,6 +18,7 @@ const (
 type Finding struct {
 	ID            string                 `json:"id" yaml:"id"`
 	Severity      string                 `json:"severity" yaml:"severity"`
+	Title         string                 `json:"title,omitempty" yaml:"title,omitempty"`
 	Message       string                 `json:"message" yaml:"message"`
 	Description   string                 `json:"description,omitempty" yaml:"description,omitempty"`
 	ResourceKind  string                 `json:"resource_kind" yaml:"resource_kind"`

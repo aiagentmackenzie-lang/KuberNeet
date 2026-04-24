@@ -3,6 +3,8 @@ package finding
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -24,7 +26,7 @@ type Finding struct {
 	ResourceKind  string                 `json:"resource_kind" yaml:"resource_kind"`
 	ResourceName  string                 `json:"resource_name" yaml:"resource_name"`
 	Namespace     string                 `json:"namespace,omitempty" yaml:"namespace,omitempty"`
-	CWE           string                 `json:"cwe,omitempty" yaml:"cwa,omitempty"`
+	CWE           string                 `json:"cwe,omitempty" yaml:"cwe,omitempty"`
 	MITRE         string                 `json:"mitre,omitempty" yaml:"mitre,omitempty"`
 	Remediation   string                 `json:"remediation,omitempty" yaml:"remediation,omitempty"`
 	AttackPath    []string               `json:"attack_path,omitempty" yaml:"attack_path,omitempty"`
@@ -44,7 +46,9 @@ type ScanResult struct {
 }
 
 func JSONOutput(findings []Finding, withRemedy bool) error {
-	result := buildResult(findings)
+	filtered := filterRemediation(findings, withRemedy)
+	result := buildResult(filtered)
+	result.ScanTime = time.Now().Format(time.RFC3339)
 	output, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
 		return err
@@ -53,8 +57,22 @@ func JSONOutput(findings []Finding, withRemedy bool) error {
 	return nil
 }
 
+// JSONFile writes scan results to a JSON file.
+func JSONFile(findings []Finding, withRemedy bool, filepath string) error {
+	filtered := filterRemediation(findings, withRemedy)
+	result := buildResult(filtered)
+	result.ScanTime = time.Now().Format(time.RFC3339)
+	output, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath, output, 0644)
+}
+
 func YAMLOutput(findings []Finding, withRemedy bool) error {
-	result := buildResult(findings)
+	filtered := filterRemediation(findings, withRemedy)
+	result := buildResult(filtered)
+	result.ScanTime = time.Now().Format(time.RFC3339)
 	output, err := yaml.Marshal(result)
 	if err != nil {
 		return err
@@ -87,7 +105,18 @@ func buildResult(findings []Finding) ScanResult {
 }
 
 func generateScanID() string {
-	return fmt.Sprintf("kuberneet-%d", len(findings)*1000+len(findings))
+	return fmt.Sprintf("kuberneet-%d", time.Now().UnixNano())
 }
 
-var findings []Finding
+// filterRemediation strips remediation fields unless requested.
+func filterRemediation(findings []Finding, withRemedy bool) []Finding {
+	if withRemedy {
+		return findings
+	}
+	filtered := make([]Finding, len(findings))
+	for i, f := range findings {
+		f.Remediation = ""
+		filtered[i] = f
+	}
+	return filtered
+}

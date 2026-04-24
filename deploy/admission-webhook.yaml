@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: kuberneet-system
-$labels:
+  labels:
     app.kubernetes.io/name: kuberneet
     app.kubernetes.io/component: admission-webhook
 

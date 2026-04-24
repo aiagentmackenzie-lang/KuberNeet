@@ -10,6 +10,23 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// capInfo maps dangerous capabilities to severity, description, and MITRE technique.
+var capInfo = map[string]struct {
+	severity string
+	desc    string
+	mitre   string
+}{
+	"SYS_ADMIN":       {finding.Critical, "CAP_SYS_ADMIN allows mount, namespace manipulation, and privilege escalation. Equivalent to root in many configurations.", "T1068"},
+	"SYS_PTRACE":      {finding.High, "CAP_SYS_PTRACE allows process inspection and memory manipulation of other processes, enabling credential theft and injection.", "T1056"},
+	"SYS_MODULE":      {finding.Critical, "CAP_SYS_MODULE allows loading kernel modules, which can compromise the entire node.", "T1547"},
+	"NET_ADMIN":       {finding.High, "CAP_NET_ADMIN allows network configuration changes, enabling traffic interception and DNS spoofing.", "T1557"},
+	"SYS_RAWIO":       {finding.Critical, "CAP_SYS_RAWIO allows direct hardware access, bypassing kernel protections.", "T1068"},
+	"SYS_BOOT":        {finding.High, "CAP_SYS_BOOT allows rebooting the node, enabling denial of service.", "T1529"},
+	"SYS_TIME":        {finding.Medium, "CAP_SYS_TIME allows changing system time, which can break TLS certificates and audit logs.", ""},
+	"DAC_READ_SEARCH": {finding.Medium, "CAP_DAC_READ_SEARCH bypasses file permission checks for reading and searching directories.", ""},
+	"LINUX_IMMUTABLE":  {finding.Medium, "CAP_LINUX_IMMUTABLE allows setting file immutability flags, which can prevent forensic analysis.", ""},
+}
+
 // scanPods scans all pods for security issues
 func (s *Scanner) scanPods(ctx context.Context) ([]finding.Finding, error) {
 	var findings []finding.Finding
@@ -41,7 +58,7 @@ func (s *Scanner) checkPodSecurity(pod *corev1.Pod) []finding.Finding {
 	return findings
 }
 
-// checkPrivilegedContainers - Check #1
+// checkPrivilegedContainers - POD-001
 func (s *Scanner) checkPrivilegedContainers(pod *corev1.Pod) []finding.Finding {
 	var findings []finding.Finding
 	ns := pod.Namespace
@@ -104,7 +121,7 @@ spec:
 	return findings
 }
 
-// checkHostNamespaces - Check #2
+// checkHostNamespaces - POD-002, POD-003, POD-004
 func (s *Scanner) checkHostNamespaces(pod *corev1.Pod) []finding.Finding {
 	var findings []finding.Finding
 	ns := pod.Namespace
@@ -156,7 +173,7 @@ func (s *Scanner) checkHostNamespaces(pod *corev1.Pod) []finding.Finding {
 	return findings
 }
 
-// checkHostPathMounts - Check #3
+// checkHostPathMounts - POD-005
 func (s *Scanner) checkHostPathMounts(pod *corev1.Pod) []finding.Finding {
 	var findings []finding.Finding
 	ns := pod.Namespace
@@ -200,7 +217,7 @@ func (s *Scanner) checkHostPathMounts(pod *corev1.Pod) []finding.Finding {
 	return findings
 }
 
-// checkSeccompProfile - Check #9
+// checkSeccompProfile - POD-006
 func (s *Scanner) checkSeccompProfile(pod *corev1.Pod) []finding.Finding {
 	var findings []finding.Finding
 	ns := pod.Namespace
@@ -240,7 +257,7 @@ func (s *Scanner) checkSeccompProfile(pod *corev1.Pod) []finding.Finding {
 	return findings
 }
 
-// checkCapabilities - Check #5
+// checkCapabilities - POD-007, POD-008
 func (s *Scanner) checkCapabilities(pod *corev1.Pod) []finding.Finding {
 	var findings []finding.Finding
 	ns := pod.Namespace
@@ -248,45 +265,34 @@ func (s *Scanner) checkCapabilities(pod *corev1.Pod) []finding.Finding {
 		ns = "default"
 	}
 
-	dangerousCaps := []string{
-		"SYS_ADMIN",
-		"SYS_PTRACE",
-		"SYS_MODULE",
-		"NET_ADMIN",
-		"SYS_RAWIO",
-		"SYS_BOOT",
-		"SYS_TIME",
-		"DAC_READ_SEARCH",
-		"LINUX_IMMUTABLE",
-	}
-
 	for _, c := range pod.Spec.Containers {
 		if c.SecurityContext == nil || c.SecurityContext.Capabilities == nil {
 			continue
 		}
 
+		// POD-007: Check for dangerous capabilities
 		for _, cap := range c.SecurityContext.Capabilities.Add {
-			for _, dangerous := range dangerousCaps {
-				if strings.EqualFold(string(cap), dangerous) && dangerous == "SYS_ADMIN" {
-					findings = append(findings, finding.Finding{
-						ID:           "POD-007",
-						Severity:     finding.Critical,
-						Message:      fmt.Sprintf("Dangerous capability '%s' added to container '%s'", cap, c.Name),
-						Description:  "CAP_SYS_ADMIN allows mount, namespace manipulation, and privilege escalation. Equivalent to root in many configurations.",
-						ResourceKind: "Pod",
-						ResourceName: pod.Name,
-						Namespace:    ns,
-						CWE:          "CWE-250",
-						MITRE:        "T1068",
-					})
-				}
+			info, known := capInfo[strings.ToUpper(string(cap))]
+			if !known {
+				continue
 			}
+			findings = append(findings, finding.Finding{
+				ID:           "POD-007",
+				Severity:     info.severity,
+				Message:      fmt.Sprintf("Dangerous capability '%s' added to container '%s'", cap, c.Name),
+				Description:  info.desc,
+				ResourceKind: "Pod",
+				ResourceName: pod.Name,
+				Namespace:    ns,
+				CWE:          "CWE-250",
+				MITRE:        info.mitre,
+			})
 		}
 
-		// Check for DROP ALL
+		// POD-008: Check for DROP ALL
 		allDropped := false
-		for _, cap := range c.SecurityContext.Capabilities.Drop {
-			if strings.EqualFold(string(cap), "ALL") {
+		for _, dropCap := range c.SecurityContext.Capabilities.Drop {
+			if strings.EqualFold(string(dropCap), "ALL") {
 				allDropped = true
 				break
 			}
@@ -315,7 +321,7 @@ containers:
 	return findings
 }
 
-// checkSecurityContext - Check #7, #8
+// checkSecurityContext - POD-009, POD-010, POD-011
 func (s *Scanner) checkSecurityContext(pod *corev1.Pod) []finding.Finding {
 	var findings []finding.Finding
 	ns := pod.Namespace
@@ -337,7 +343,7 @@ func (s *Scanner) checkSecurityContext(pod *corev1.Pod) []finding.Finding {
 			continue
 		}
 
-		// Check allowPrivilegeEscalation
+		// POD-010: Check allowPrivilegeEscalation
 		if c.SecurityContext.AllowPrivilegeEscalation == nil || *c.SecurityContext.AllowPrivilegeEscalation {
 			findings = append(findings, finding.Finding{
 				ID:           "POD-010",
@@ -355,7 +361,7 @@ containers:
 			})
 		}
 
-		// Check runAsRoot
+		// POD-011: Check runAsRoot
 		if c.SecurityContext.RunAsNonRoot == nil || !*c.SecurityContext.RunAsNonRoot {
 			if c.SecurityContext.RunAsUser == nil || *c.SecurityContext.RunAsUser == 0 {
 				findings = append(findings, finding.Finding{
@@ -380,7 +386,7 @@ containers:
 	return findings
 }
 
-// checkServiceAccount - Check #4, #6
+// checkServiceAccount - POD-012, POD-013
 func (s *Scanner) checkServiceAccount(pod *corev1.Pod) []finding.Finding {
 	var findings []finding.Finding
 	ns := pod.Namespace
@@ -388,7 +394,7 @@ func (s *Scanner) checkServiceAccount(pod *corev1.Pod) []finding.Finding {
 		ns = "default"
 	}
 
-	// Check default serviceaccount
+	// POD-012: Check default serviceaccount
 	if pod.Spec.ServiceAccountName == "default" || pod.Spec.ServiceAccountName == "" {
 		findings = append(findings, finding.Finding{
 			ID:           "POD-012",
@@ -401,7 +407,7 @@ func (s *Scanner) checkServiceAccount(pod *corev1.Pod) []finding.Finding {
 		})
 	}
 
-	// Check automount
+	// POD-013: Check automount
 	if pod.Spec.AutomountServiceAccountToken == nil || *pod.Spec.AutomountServiceAccountToken {
 		findings = append(findings, finding.Finding{
 			ID:           "POD-013",

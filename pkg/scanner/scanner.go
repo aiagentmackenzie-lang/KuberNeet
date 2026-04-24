@@ -7,13 +7,14 @@ import (
 	"strings"
 
 	"github.com/raphael/kuberneet/pkg/finding"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"sigs.k8s.io/yaml"
 )
 
 type Options struct {
@@ -103,7 +104,7 @@ func (s *Scanner) ScanCluster(ctx context.Context) ([]finding.Finding, error) {
 	findings = append(findings, deployFindings...)
 
 	// Scan RBAC
-	 rbacFindings, err := s.scanRBAC(ctx)
+	rbacFindings, err := s.scanRBAC(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to scan RBAC: %w", err)
 	}
@@ -134,14 +135,14 @@ func (s *Scanner) ScanCluster(ctx context.Context) ([]finding.Finding, error) {
 }
 
 func (s *Scanner) ScanManifest(ctx context.Context, manifestPath string) ([]finding.Finding, error) {
-	var findings []finding.Finding
-
 	data, err := os.ReadFile(manifestPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read manifest: %w", err)
 	}
 
-	// Parse YAML (basic - would need multi-doc support for production)
+	var findings []finding.Finding
+
+	// Split multi-document YAML
 	docs := strings.Split(string(data), "---")
 
 	for _, doc := range docs {
@@ -150,15 +151,43 @@ func (s *Scanner) ScanManifest(ctx context.Context, manifestPath string) ([]find
 			continue
 		}
 
-		obj := &metav1.Unstructured{}
-		// Simple unstructured parse - would use proper YAML decoder in production
-		// For now, skip manifest scanning
-		_ = obj
+		// Parse into unstructured to determine kind
+		var obj map[string]interface{}
+		if err := yaml.Unmarshal([]byte(doc), &obj); err != nil {
+			if s.verbose {
+				fmt.Printf("Warning: failed to parse manifest document: %v\n", err)
+			}
+			continue
+		}
+
+		kind, _ := obj["kind"].(string)
+
+		switch kind {
+		case "Pod":
+			var pod corev1.Pod
+			if err := yaml.Unmarshal([]byte(doc), &pod); err != nil {
+				continue
+			}
+			if pod.Namespace == "" {
+				pod.Namespace = "default"
+			}
+			findings = append(findings, s.checkPodSecurity(&pod)...)
+		case "Deployment", "StatefulSet", "DaemonSet", "ReplicaSet":
+			var deploy appsv1.Deployment
+			if err := yaml.Unmarshal([]byte(doc), &deploy); err != nil {
+				// Try other workload kinds
+				continue
+			}
+			if deploy.Namespace == "" {
+				deploy.Namespace = "default"
+			}
+			findings = append(findings, s.checkDeploymentSecurity(&deploy)...)
+		}
 	}
 
 	_ = ctx
 
-	return findings, fmt.Errorf("manifest scanning not yet implemented")
+	return s.filterBySeverity(findings), nil
 }
 
 func (s *Scanner) filterBySeverity(findings []finding.Finding) []finding.Finding {
@@ -197,6 +226,53 @@ func (s *Scanner) CheckPod(pod *corev1.Pod) []finding.Finding {
 	return s.checkPodSecurity(pod)
 }
 
-// Interface compliance
-var _ informers.SharedInformerFactory = nil
-var _ runtime.Object = (*corev1.Pod)(nil)
+// kubernetesClientsetFromConfig creates an anonymous clientset for CIS checks.
+func kubernetesClientsetFromConfig(config *rest.Config, anonymous bool) (*kubernetes.Clientset, error) {
+	if anonymous {
+		anonConfig := rest.CopyConfig(config)
+		anonConfig.BearerToken = ""
+		anonConfig.Username = ""
+		anonConfig.Password = ""
+		return kubernetes.NewForConfig(anonConfig)
+	}
+	return kubernetes.NewForConfig(config)
+}
+
+// OPAEngine interface for OPA policy evaluation.
+// Defined here to avoid circular import between scanner and opa packages.
+
+type OPAEvaluator interface {
+	ScanResource(ctx context.Context, resource map[string]interface{}) ([]finding.Finding, error)
+}
+
+// ScanWithOPA runs OPA/Rego policy evaluation alongside the built-in scanner.
+func (s *Scanner) ScanWithOPA(ctx context.Context, evaluator OPAEvaluator) ([]finding.Finding, error) {
+	var findings []finding.Finding
+
+	// Scan pods with OPA
+	pods, err := s.clientset.CoreV1().Pods(s.namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list pods for OPA scan: %w", err)
+	}
+
+	for _, pod := range pods.Items {
+		// Convert pod to map for OPA evaluation
+		podMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&pod)
+		if err != nil {
+			if s.verbose {
+				fmt.Printf("Warning: failed to convert pod %s: %v\n", pod.Name, err)
+			}
+			continue
+		}
+		opaFindings, err := evaluator.ScanResource(ctx, podMap)
+		if err != nil {
+			if s.verbose {
+				fmt.Printf("Warning: OPA evaluation failed for pod %s: %v\n", pod.Name, err)
+			}
+			continue
+		}
+		findings = append(findings, opaFindings...)
+	}
+
+	return s.filterBySeverity(findings), nil
+}

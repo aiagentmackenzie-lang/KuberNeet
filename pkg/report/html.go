@@ -234,7 +234,7 @@ func (r *HTMLReport) Generate(filepath string) error {
                     const arrow = j < path.path.length - 1 ? '<span class="path-arrow">&rarr;</span>' : '';
                     return '<span class="path-node">' + node.type + '/' + node.name + '</span>' + arrow;
                 }).join('');
-                div.innerHTML = '<div class="f inding-title">' + path.technique + '</div>' +
+                div.innerHTML = '<div class="finding-title">' + path.technique + '</div>' +
                     '<div class="path-chain">' + pathNodes + '</div>' +
                     '<div style="margin-top: 10px; color: #8b949e;">' + path.description + '</div>' +
                     '<div class="path-risk ' + riskClass + '">Risk: ' + Math.round(path.risk_score) + '</div>';

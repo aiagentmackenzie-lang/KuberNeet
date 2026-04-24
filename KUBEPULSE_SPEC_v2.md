@@ -1,4 +1,6 @@
-# KubePulse — Technical Specification v2.0
+# KuberNeet (formerly KubePulse) — Technical Specification v2.0
+
+> **Note:** This project was renamed from KubePulse to KuberNeet during development. All code and docs use the KuberNeet name.
 
 **Date:** April 18, 2026  
 **Research Status:** ✅ Deep dive complete (client-go informers, OPA/Rego, container escapes, CIS v1.12, MITRE ATT&CK)  

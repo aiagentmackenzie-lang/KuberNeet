@@ -1,42 +1,60 @@
-name: KuberNeet Security Scan
+name: CI
 
 on:
   push:
     branches: [main, master]
   pull_request:
     branches: [main, master]
-  workflow_dispatch:
 
 jobs:
-  security-scan:
-    name: Security Scan
+  build:
+    name: Build & Test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup KuberNeet
-        run: |
-          curl -L https://github.com/raphael/kuberneet/releases/latest/download/kuberneet-linux-amd64 -o kuberneet
-          chmod +x kuberneet
-          sudo mv kuberneet /usr/local/bin/
-
-      - name: Run KuberNeet Scan
-        run: |
-          kuberneet scan --output sarif --output-file kuberneet-results.sarif || true
-          kuberneet report --html --output kuberneet-report.html || true
-        continue-on-error: true
-
-      - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@v3
-        if: hashFiles('kuberneet-results.sarif') != ''
+      - name: Setup Go
+        uses: actions/setup-go@v5
         with:
-          sarif_file: kuberneet-results.sarif
-          category: kuberneet
+          go-version-file: go.mod
 
-      - name: Upload Report
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Build
+        run: go build -o bin/kuberneet ./cmd/kuberneet
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test ./... -v
+
+      - name: Upload binary
         uses: actions/upload-artifact@v4
-        if: hashFiles('kuberneet-report.html') != ''
         with:
-          name: kuberneet-report
-          path: kuberneet-report.html
+          name: kuberneet-linux-amd64
+          path: bin/kuberneet
+
+  manifest-scan:
+    name: Manifest Security Scan
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download binary
+        uses: actions/download-artifact@v4
+        with:
+          name: kuberneet-linux-amd64
+          path: bin
+
+      - name: Make executable
+        run: chmod +x bin/kuberneet
+
+      - name: Scan deployment manifests
+        run: |
+          ./bin/kuberneet scan --manifest deploy/admission-webhook.yaml --output json || true
+        continue-on-error: true

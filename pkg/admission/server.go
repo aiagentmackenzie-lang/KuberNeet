@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/raphael/kuberneet/pkg/scanner"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -155,6 +156,16 @@ func (s *Server) validatePod(req *v1beta1.AdmissionRequest) *v1beta1.AdmissionRe
 		return response
 	}
 
+	if s.scanner == nil {
+		// No cluster connection — do basic static checks only
+		response.Allowed = false
+		response.Result = &metav1.Status{
+			Message: "Scanner unavailable: cannot validate pod security",
+			Code:    http.StatusServiceUnavailable,
+		}
+		return response
+	}
+
 	// Run security checks
 	findings := s.scanner.CheckPod(&pod)
 	
@@ -187,9 +198,48 @@ func (s *Server) validateDeployment(req *v1beta1.AdmissionRequest) *v1beta1.Admi
 		Allowed: true,
 	}
 
-	// Parse deployment and extract pod template
-	// Similar to validatePod but for deployment templates
-	
+	if s.scanner == nil {
+		response.Allowed = false
+		response.Result = &metav1.Status{
+			Message: "Scanner unavailable: cannot validate deployment security",
+			Code:    http.StatusServiceUnavailable,
+		}
+		return response
+	}
+
+	var deploy appsv1.Deployment
+	if err := json.Unmarshal(req.Object.Raw, &deploy); err != nil {
+		response.Allowed = false
+		response.Result = &metav1.Status{
+			Message: fmt.Sprintf("could not parse deployment: %v", err),
+			Code:    http.StatusBadRequest,
+		}
+		return response
+	}
+
+	// Check the pod template spec
+	findings := s.scanner.CheckPod(&corev1.Pod{
+		Spec: deploy.Spec.Template.Spec,
+	})
+
+	var criticalFindings []string
+	for _, f := range findings {
+		if f.Severity == "CRITICAL" || f.Severity == "HIGH" {
+			criticalFindings = append(criticalFindings,
+				fmt.Sprintf("[%s] %s: %s", f.ID, f.Severity, f.Message))
+		}
+	}
+
+	if len(criticalFindings) > 0 {
+		response.Allowed = false
+		response.Result = &metav1.Status{
+			Message: fmt.Sprintf("Security policy violation:\n%s",
+				strings.Join(criticalFindings, "\n")),
+			Code:    http.StatusForbidden,
+			Reason:  metav1.StatusReasonForbidden,
+		}
+	}
+
 	return response
 }
 

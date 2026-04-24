@@ -10,6 +10,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/raphael/kuberneet/pkg/finding"
+	"github.com/raphael/kuberneet/pkg/opa"
 	"github.com/raphael/kuberneet/pkg/scanner"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/util/homedir"
@@ -19,8 +20,10 @@ type scanOptions struct {
 	namespace    string
 	manifest     string
 	output       string
+	outputFile   string
 	severity     string
 	withRemedy   bool
+	opa          bool
 	verbose      bool
 }
 
@@ -58,8 +61,10 @@ func init() {
 	scanCmd.Flags().StringVarP(&scanOpts.namespace, "namespace", "n", "", "Target namespace (default: all)")
 	scanCmd.Flags().StringVarP(&scanOpts.manifest, "manifest", "m", "", "Scan local YAML manifest")
 	scanCmd.Flags().StringVarP(&scanOpts.output, "output", "o", "table", "Output format: table|json|yaml|sarif")
+	scanCmd.Flags().StringVarP(&scanOpts.outputFile, "output-file", "f", "", "Write output to file (required for sarif)")
 	scanCmd.Flags().StringVarP(&scanOpts.severity, "severity", "s", "", "Filter by severity: CRITICAL|HIGH|MEDIUM|LOW")
 	scanCmd.Flags().BoolVarP(&scanOpts.withRemedy, "remediate", "r", false, "Include remediation YAML in output")
+	scanCmd.Flags().BoolVarP(&scanOpts.opa, "opa", "", false, "Include OPA/Rego policy evaluation")
 }
 
 func runScan(cmd *cobra.Command, args []string) error {
@@ -110,21 +115,46 @@ func runScan(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Optional OPA/Rego evaluation
+	if scanOpts.opa {
+		opaEngine, err := opa.NewEngine(ctx)
+		if err != nil {
+			if verbose {
+				fmt.Fprintf(os.Stderr, "Warning: OPA engine failed: %v\n", err)
+			}
+		} else {
+			opaFindings, err := s.ScanWithOPA(ctx, opaEngine)
+			if err != nil {
+				if verbose {
+					fmt.Fprintf(os.Stderr, "Warning: OPA scan failed: %v\n", err)
+				}
+			} else {
+				findings = append(findings, opaFindings...)
+			}
+		}
+	}
+
 	// Output results
-	if err := outputResults(findings, scanOpts.output, scanOpts.withRemedy, scanType); err != nil {
+	if err := outputResults(findings, scanOpts.output, scanOpts.withRemedy, scanOpts.outputFile, scanType); err != nil {
 		return fmt.Errorf("output failed: %w", err)
 	}
 
 	return nil
 }
 
-func outputResults(findings []finding.Finding, format string, withRemedy bool, scanType string) error {
+func outputResults(findings []finding.Finding, format string, withRemedy bool, outputFile string, scanType string) error {
 	switch format {
 	case "json":
+		if outputFile != "" {
+			return finding.JSONFile(findings, withRemedy, outputFile)
+		}
 		return finding.JSONOutput(findings, withRemedy)
 	case "yaml":
 		return finding.YAMLOutput(findings, withRemedy)
 	case "sarif":
+		if outputFile != "" {
+			return finding.SARIFFile(findings, "0.1.0", outputFile)
+		}
 		return finding.SARIFOutput(findings, withRemedy)
 	default:
 		return tableOutput(findings, withRemedy, scanType)

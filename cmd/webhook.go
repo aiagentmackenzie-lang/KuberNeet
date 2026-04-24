@@ -67,8 +67,8 @@ func runWebhook(cmd *cobra.Command, args []string) error {
 		Verbose: verbose,
 	})
 	if err != nil {
-		// For webhook, we can run without cluster access (in-cluster)
-		s = nil
+		fmt.Fprintf(os.Stderr, "Warning: failed to connect to cluster for scanner: %v\n", err)
+		fmt.Fprintln(os.Stderr, "Webhook will run in validate-only mode (no inline policy checks)")
 	}
 
 	fmt.Println(color.CyanString("▶ KuberNeet Admission Webhook"))

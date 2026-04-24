@@ -141,9 +141,9 @@ func (b *Builder) BuildService(name, namespace string, selector map[string]strin
 		Type:      NodeTypeService,
 		Name:      name,
 		Namespace: namespace,
-		Labels:    selector,
 		Metadata: map[string]interface{}{
-			"type": serviceType,
+			"type":     serviceType,
+			"selector": selector,
 		},
 	}
 
@@ -255,9 +255,9 @@ func (pf *PathFinder) FindAttackPaths() []AttackPath {
 
 // traceToPrivilegedPod follows service -> pod -> privileged checks
 func (pf *PathFinder) traceToPrivilegedPod(svc *Node) *AttackPath {
-	// Get selector
-	selector := svc.Labels
-	if len(selector) == 0 {
+	// Get selector from metadata
+	selector, ok := svc.Metadata["selector"].(map[string]string)
+	if !ok || len(selector) == 0 {
 		return nil
 	}
 

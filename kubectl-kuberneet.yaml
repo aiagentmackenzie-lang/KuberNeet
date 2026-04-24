@@ -7,41 +7,40 @@ spec:
   homepage: https://github.com/raphael/kuberneet
   shortDescription: Kubernetes security scanner with attack graph
   description: |
-    KuberNeet is a security scanner for Kubernetes that identifies
-    container escape vulnerabilities, RBAC misconfigurations, and
-    generates attack path graphs. Unlike other scanners, KuberNeet
-    explains WHY issues are insecure and provides exact remediation.
+    KuberNeet scans Kubernetes clusters for security misconfigurations,
+    maps findings to attack paths, and generates remediation YAML.
+    Checks include pod security, RBAC analysis, network policies,
+    and CIS benchmarks.
   caveats: |
-    * Requires access to Kubernetes cluster with permissions to
-      list pods, deployments, roles, and networkpolicies
-    * Some CIS checks may require privileged node access
+    Requires access to a Kubernetes cluster with permissions to
+    list pods, deployments, roles, and networkpolicies.
+    Some CIS checks require privileged node access.
   platforms:
     - selector:
         matchLabels:
           os: darwin
           arch: amd64
       uri: https://github.com/raphael/kuberneet/releases/download/v0.1.0/kuberneet-darwin-amd64.tar.gz
-      sha256: REPLACE_WITH_SHA256
+      sha256: ""
       bin: kuberneet
     - selector:
         matchLabels:
           os: darwin
           arch: arm64
       uri: https://github.com/raphael/kuberneet/releases/download/v0.1.0/kuberneet-darwin-arm64.tar.gz
-      sha256: REPLACE_WITH_SHA256
+      sha256: ""
       bin: kuberneet
     - selector:
         matchLabels:
           os: linux
           arch: amd64
       uri: https://github.com/raphael/kuberneet/releases/download/v0.1.0/kuberneet-linux-amd64.tar.gz
-      sha256: REPLACE_WITH_SHA256
+      sha256: ""
       bin: kuberneet
     - selector:
         matchLabels:
           os: linux
           arch: arm64
       uri: https://github.com/raphael/kuberneet/releases/download/v0.1.0/kuberneet-linux-arm64.tar.gz
-      sha256: REPLACE_WITH_SHA256
+      sha256: ""
       bin: kuberneet
-  shortDescription: Kubernetes security scanner

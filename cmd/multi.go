@@ -2,11 +2,13 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/fatih/color"
+	"github.com/raphael/kuberneet/pkg/finding"
 	"github.com/raphael/kuberneet/pkg/federation"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/util/homedir"
@@ -90,13 +92,30 @@ func runMultiCluster(cmd *cobra.Command, args []string) error {
 }
 
 func outputJSON(results []federation.ScanResult) error {
-	fmt.Println("[")
-	for i, result := range results {
-		if i > 0 {
-			fmt.Println(",")
-		}
-		fmt.Printf(`  {"cluster": "%s", "findings": %d}`, result.Cluster, len(result.Findings))
+	type clusterOutput struct {
+		Cluster   string            `json:"cluster"`
+		Findings  []finding.Finding `json:"findings"`
+		NodeCount int               `json:"node_count"`
+		Error     string            `json:"error,omitempty"`
 	}
-	fmt.Println("\n]")
+
+	outputs := make([]clusterOutput, len(results))
+	for i, r := range results {
+		o := clusterOutput{
+			Cluster:   r.Cluster,
+			Findings:  r.Findings,
+			NodeCount: r.NodeCount,
+		}
+		if r.Error != nil {
+			o.Error = r.Error.Error()
+		}
+		outputs[i] = o
+	}
+
+	data, err := json.MarshalIndent(outputs, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(data))
 	return nil
 }

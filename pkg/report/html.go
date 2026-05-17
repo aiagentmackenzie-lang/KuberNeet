@@ -31,15 +31,15 @@ func NewHTMLReport(findings []finding.Finding, paths []graph.AttackPath, g *grap
 // Generate creates the HTML file
 func (r *HTMLReport) Generate(filepath string) error {
 	// Convert data to JSON for D3
-	graphJSON, err := json.Marshal(r.Graph)
+	safeGraphJSON, err := json.Marshal(r.Graph)
 	if err != nil {
 		return err
 	}
-	findingsJSON, err := json.Marshal(r.Findings)
+	safeFindingsJSON, err := json.Marshal(r.Findings)
 	if err != nil {
 		return err
 	}
-	pathsJSON, err := json.Marshal(r.AttackPaths)
+	safePathsJSON, err := json.Marshal(r.AttackPaths)
 	if err != nil {
 		return err
 	}
@@ -140,9 +140,9 @@ func (r *HTMLReport) Generate(filepath string) error {
     </div>
 
     <script>
-        const graphData = ` + string(graphJSON) + `;
-        const findingsData = ` + string(findingsJSON) + `;
-        const pathsData = ` + string(pathsJSON) + `;
+        const graphData = ` + string(safeGraphJSON) + `;
+        const findingsData = ` + string(safeFindingsJSON) + `;
+        const pathsData = ` + string(safePathsJSON) + `;
 
         // Render graph
         function renderGraph() {

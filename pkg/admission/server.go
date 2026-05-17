@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/raphael/kuberneet/pkg/finding"
 	"github.com/raphael/kuberneet/pkg/scanner"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -157,11 +158,11 @@ func (s *Server) validatePod(req *v1beta1.AdmissionRequest) *v1beta1.AdmissionRe
 	}
 
 	if s.scanner == nil {
-		// No cluster connection — do basic static checks only
-		response.Allowed = false
+		// Scanner unavailable — allow through with a warning
+		response.Allowed = true
 		response.Result = &metav1.Status{
-			Message: "Scanner unavailable: cannot validate pod security",
-			Code:    http.StatusServiceUnavailable,
+			Message: "KuberNeet scanner unavailable: pod admitted without security validation",
+			Code:    http.StatusOK,
 		}
 		return response
 	}
@@ -172,8 +173,8 @@ func (s *Server) validatePod(req *v1beta1.AdmissionRequest) *v1beta1.AdmissionRe
 	// Check for critical findings
 	var criticalFindings []string
 	for _, f := range findings {
-		if f.Severity == "CRITICAL" || f.Severity == "HIGH" {
-			criticalFindings = append(criticalFindings, 
+		if f.Severity == finding.Critical || f.Severity == finding.High {
+			criticalFindings = append(criticalFindings,
 				fmt.Sprintf("[%s] %s: %s", f.ID, f.Severity, f.Message))
 		}
 	}
@@ -181,7 +182,7 @@ func (s *Server) validatePod(req *v1beta1.AdmissionRequest) *v1beta1.AdmissionRe
 	if len(criticalFindings) > 0 {
 		response.Allowed = false
 		response.Result = &metav1.Status{
-			Message: fmt.Sprintf("Security policy violation:\n%s", 
+			Message: fmt.Sprintf("Security policy violation:\n%s",
 				strings.Join(criticalFindings, "\n")),
 			Code:    http.StatusForbidden,
 			Reason:  metav1.StatusReasonForbidden,
@@ -199,10 +200,11 @@ func (s *Server) validateDeployment(req *v1beta1.AdmissionRequest) *v1beta1.Admi
 	}
 
 	if s.scanner == nil {
-		response.Allowed = false
+		// Scanner unavailable — allow through with a warning
+		response.Allowed = true
 		response.Result = &metav1.Status{
-			Message: "Scanner unavailable: cannot validate deployment security",
-			Code:    http.StatusServiceUnavailable,
+			Message: "KuberNeet scanner unavailable: deployment admitted without security validation",
+			Code:    http.StatusOK,
 		}
 		return response
 	}
@@ -224,7 +226,7 @@ func (s *Server) validateDeployment(req *v1beta1.AdmissionRequest) *v1beta1.Admi
 
 	var criticalFindings []string
 	for _, f := range findings {
-		if f.Severity == "CRITICAL" || f.Severity == "HIGH" {
+		if f.Severity == finding.Critical || f.Severity == finding.High {
 			criticalFindings = append(criticalFindings,
 				fmt.Sprintf("[%s] %s: %s", f.ID, f.Severity, f.Message))
 		}

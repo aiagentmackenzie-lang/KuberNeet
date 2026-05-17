@@ -213,6 +213,35 @@ func (b *Builder) BuildBinding(bindingName, namespace string, isClusterBinding b
 	}
 }
 
+// LinkServicesToPods creates edges from services to pods matching their selectors.
+// Must be called after all services and pods have been added.
+func (b *Builder) LinkServicesToPods() {
+	for _, node := range b.graph.Nodes {
+		if node.Type != NodeTypeService {
+			continue
+		}
+
+		selector, ok := node.Metadata["selector"].(map[string]string)
+		if !ok || len(selector) == 0 {
+			continue
+		}
+
+		// Find pods matching the service selector
+		for _, podNode := range b.graph.Nodes {
+			if podNode.Type != NodeTypePod {
+				continue
+			}
+			if node.Namespace != "" && podNode.Namespace != "" && node.Namespace != podNode.Namespace {
+				continue
+			}
+
+			if matchesSelector(podNode.Labels, selector) {
+				b.graph.AddEdge(node.ID, podNode.ID, "selects", fmt.Sprintf("Service %s selects pod %s", node.Name, podNode.Name))
+			}
+		}
+	}
+}
+
 // GetGraph returns the constructed graph
 func (b *Builder) GetGraph() *Graph {
 	return b.graph

@@ -24,7 +24,6 @@ type scanOptions struct {
 	severity     string
 	withRemedy   bool
 	opa          bool
-	verbose      bool
 }
 
 var scanOpts = &scanOptions{}

@@ -7,6 +7,7 @@ import (
 
 	"github.com/raphael/kuberneet/pkg/finding"
 	"github.com/raphael/kuberneet/pkg/scanner"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 )
@@ -106,14 +107,19 @@ func (m *MultiClusterScanner) scanCluster(ctx context.Context, config ClusterCon
 	}
 
 	// Get cluster stats
-	// nodes, _ := s.GetClientset().CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	nodes, err := s.GetClientset().CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	nodeCount := 0
+	if err == nil {
+		nodeCount = len(nodes.Items)
+	}
 
 	// Run scan
 	findings, err := s.ScanCluster(ctx)
 
 	result := ScanResult{
-		Cluster:  config.Name,
-		Findings: findings,
+		Cluster:   config.Name,
+		Findings:  findings,
+		NodeCount: nodeCount,
 	}
 
 	if err != nil {

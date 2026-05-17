@@ -12,10 +12,11 @@ import (
 	"github.com/fatih/color"
 	"github.com/raphael/kuberneet/pkg/scanner"
 	"github.com/spf13/cobra"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/homedir"
-	corev1 "k8s.io/api/core/v1"
 )
 
 var watchOpts = struct {
@@ -113,11 +114,30 @@ func runInformerWatch(ctx context.Context, s *scanner.Scanner) error {
 		},
 	})
 
+	// Add deployment informer
+	deployInformer := factory.Apps().V1().Deployments().Informer()
+	deployInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			deploy := obj.(*appsv1.Deployment)
+			checkDeploymentResource(deploy, "ADDED", s)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			deploy := newObj.(*appsv1.Deployment)
+			checkDeploymentResource(deploy, "MODIFIED", s)
+		},
+		DeleteFunc: func(obj interface{}) {
+			deploy := obj.(*appsv1.Deployment)
+			fmt.Printf("[%s] %s/%s deployment deleted\n",
+				time.Now().Format("15:04:05"),
+				deploy.Namespace, deploy.Name)
+		},
+	})
+
 	// Start informers
 	factory.Start(ctx.Done())
 
 	// Wait for cache sync
-	if !cache.WaitForCacheSync(ctx.Done(), podInformer.HasSynced) {
+	if !cache.WaitForCacheSync(ctx.Done(), podInformer.HasSynced, deployInformer.HasSynced) {
 		return fmt.Errorf("failed to sync caches")
 	}
 
@@ -146,6 +166,41 @@ func checkResource(pod *corev1.Pod, eventType string, s *scanner.Scanner) {
 			sevColor(f.Severity),
 			pod.Namespace,
 			pod.Name,
+			f.Message,
+			f.ID,
+		)
+	}
+}
+
+func checkDeploymentResource(deploy *appsv1.Deployment, eventType string, s *scanner.Scanner) {
+	// Create a synthetic pod from the deployment's pod template spec
+	pod := &corev1.Pod{
+		ObjectMeta: deploy.Spec.Template.ObjectMeta,
+		Spec:       deploy.Spec.Template.Spec,
+	}
+	if pod.Namespace == "" {
+		pod.Namespace = deploy.Namespace
+	}
+	if pod.Name == "" {
+		pod.Name = deploy.Name
+	}
+
+	findings := s.CheckPod(pod)
+
+	if len(findings) == 0 {
+		return
+	}
+
+	timestamp := time.Now().Format("15:04:05")
+
+	for _, f := range findings {
+		sevColor := getSeverityColor(f.Severity)
+		fmt.Printf("[%s] %s [%s] %s/%s: %s [%.12s]\n",
+			timestamp,
+			color.CyanString(eventType),
+			sevColor(f.Severity),
+			deploy.Namespace,
+			deploy.Name,
 			f.Message,
 			f.ID,
 		)

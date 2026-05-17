@@ -336,7 +336,7 @@ kuberneet multi --output json
 
 ## Project Stats
 
-- **25 Go source files** (~4,900 LOC)
+- **24 Go source files** (~4,900 LOC)
 - **23 unit tests** (scanner: 10, finding: 5, graph: 8)
 - **35 Go security checks** + **14 Rego policies**
 - **8 CLI commands** (scan, graph, watch, report, multi, webhook, version)

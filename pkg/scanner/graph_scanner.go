@@ -49,6 +49,9 @@ func (s *Scanner) ScanWithGraph(ctx context.Context) (*GraphScanResult, error) {
 		}
 	}
 
+	// Link services to pods after all nodes are built
+	builder.LinkServicesToPods()
+
 	g := builder.GetGraph()
 
 	// Find attack paths

@@ -7,8 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/open-policy-agent/opa/ast"
-	"github.com/open-policy-agent/opa/rego"
+	"github.com/open-policy-agent/opa/v1/ast"
+	"github.com/open-policy-agent/opa/v1/rego"
 	"github.com/raphael/kuberneet/pkg/finding"
 )
 
@@ -191,17 +191,23 @@ func (e *Engine) PolicyFiles() []string {
 
 // CompilePoliciesToDisk writes compiled policy bundles to a directory (for OPA SDK usage).
 func CompilePoliciesToDisk(outputDir string) error {
-	entries, err := policyFS.ReadDir("policies")
-	if err != nil {
-		return err
-	}
-	for _, entry := range entries {
-		data, err := policyFS.ReadFile(filepath.Join("policies", entry.Name()))
+	dirs := []string{"policies", "policies/pod", "policies/rbac"}
+	for _, dir := range dirs {
+		entries, err := policyFS.ReadDir(dir)
 		if err != nil {
-			return err
+			continue // subdirectory may not exist
 		}
-		if err := os.WriteFile(filepath.Join(outputDir, entry.Name()), data, 0644); err != nil {
-			return err
+		for _, entry := range entries {
+			if filepath.Ext(entry.Name()) != ".rego" {
+				continue
+			}
+			data, err := policyFS.ReadFile(filepath.Join(dir, entry.Name()))
+			if err != nil {
+				return err
+			}
+			if err := os.WriteFile(filepath.Join(outputDir, entry.Name()), data, 0644); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

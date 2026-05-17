@@ -140,7 +140,8 @@ func ToSARIF(findings []Finding, version string) (*SARIFDocument, error) {
 
 // SARIFOutput exports findings to SARIF format (stdout)
 func SARIFOutput(findings []Finding, withRemedy bool) error {
-	sarif, err := ToSARIF(findings, "0.1.0")
+	filtered := filterRemediation(findings, withRemedy)
+	sarif, err := ToSARIF(filtered, "0.1.0")
 	if err != nil {
 		return err
 	}

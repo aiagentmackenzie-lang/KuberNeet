@@ -30,6 +30,9 @@ func init() {
 	_ = v1beta1.AddToScheme(runtimeScheme)
 }
 
+// maxRequestBodyBytes limits the admission request body to 1MB
+const maxRequestBodyBytes = 1 << 20 // 1MB
+
 // Server handles admission webhook requests
 type Server struct {
 	port      int
@@ -90,7 +93,7 @@ func (s *Server) Start(ctx context.Context) error {
 
 // handleValidate processes validation webhook requests
 func (s *Server) handleValidate(w http.ResponseWriter, r *http.Request) {
-	body, err := io.ReadAll(r.Body)
+	body, err := io.ReadAll(io.LimitReader(r.Body, maxRequestBodyBytes))
 	if err != nil {
 		http.Error(w, "could not read request body", http.StatusBadRequest)
 		return
@@ -247,7 +250,7 @@ func (s *Server) validateDeployment(req *v1beta1.AdmissionRequest) *v1beta1.Admi
 
 // handleMutate processes mutation webhook requests
 func (s *Server) handleMutate(w http.ResponseWriter, r *http.Request) {
-	body, err := io.ReadAll(r.Body)
+	body, err := io.ReadAll(io.LimitReader(r.Body, maxRequestBodyBytes))
 	if err != nil {
 		http.Error(w, "could not read request body", http.StatusBadRequest)
 		return

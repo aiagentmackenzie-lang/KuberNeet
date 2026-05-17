@@ -213,7 +213,20 @@ func shouldInclude(findingSev, filterSev string) bool {
 		finding.Info:     0,
 	}
 
-	return severityOrder[findingSev] >= severityOrder[filterSev]
+	findingLevel, known := severityOrder[findingSev]
+	if !known {
+		// Unknown severity levels are treated as MEDIUM (2)
+		// so they're visible by default but don't get silently dropped
+		findingLevel = 2
+	}
+
+	filterLevel, known := severityOrder[filterSev]
+	if !known {
+		// Unknown filter levels default to showing everything
+		return true
+	}
+
+	return findingLevel >= filterLevel
 }
 
 // GetClientset returns the kubernetes clientset

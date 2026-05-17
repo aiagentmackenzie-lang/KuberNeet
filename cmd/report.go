@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -16,7 +17,7 @@ import (
 var reportOpts = struct {
 	namespace string
 	output    string
-	html      bool
+	format    string
 }{}
 
 var reportCmd = &cobra.Command{
@@ -27,17 +28,16 @@ var reportCmd = &cobra.Command{
 Supports multiple output formats:
 - HTML: Interactive report with D3 attack graph visualization
 - JSON: Structured data for automation
-- SARIF: GitHub Code Scanning format
 
 Examples:
   # Generate HTML report
-  kuberneet report --html --output report.html
+  kuberneet report --output report.html
 
-  # JSON report for CI/CD
-  kuberneet report --output report.json
+  # Generate JSON report
+  kuberneet report --format json --output report.json
 
   # Scan specific namespace and generate HTML
-  kuberneet report --namespace production --html --output prod-report.html`,
+  kuberneet report --namespace production --output prod-report.html`,
 	RunE: runReport,
 }
 
@@ -46,7 +46,7 @@ func init() {
 
 	reportCmd.Flags().StringVarP(&reportOpts.namespace, "namespace", "n", "", "Target namespace (default: all)")
 	reportCmd.Flags().StringVarP(&reportOpts.output, "output", "o", "kuberneet-report.html", "Output file path")
-	reportCmd.Flags().BoolVarP(&reportOpts.html, "html", "", true, "Generate HTML report")
+	reportCmd.Flags().StringVarP(&reportOpts.format, "format", "f", "html", "Output format: html|json")
 }
 
 func runReport(cmd *cobra.Command, args []string) error {
@@ -80,7 +80,17 @@ func runReport(cmd *cobra.Command, args []string) error {
 	}
 
 	// Generate report
-	if reportOpts.html {
+	switch reportOpts.format {
+	case "json":
+		data, err := json.MarshalIndent(result, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal report: %w", err)
+		}
+		if err := os.WriteFile(reportOpts.output, data, 0644); err != nil {
+			return fmt.Errorf("failed to write report: %w", err)
+		}
+		fmt.Printf("\n%s Generated JSON report: %s\n", color.GreenString("✓"), reportOpts.output)
+	default:
 		rpt := report.NewHTMLReport(result.Findings, result.AttackPaths, result.Graph)
 		if err := rpt.Generate(reportOpts.output); err != nil {
 			return fmt.Errorf("failed to generate HTML report: %w", err)

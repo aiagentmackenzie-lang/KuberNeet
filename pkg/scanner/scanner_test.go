@@ -8,9 +8,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func intPtr(v int32) *int32    { return &v }
 func boolPtr(v bool) *bool     { return &v }
-func strPtr(v string) *string  { return &v }
 
 func TestCheckPrivilegedContainers(t *testing.T) {
 	s := &Scanner{withRemedy: true}

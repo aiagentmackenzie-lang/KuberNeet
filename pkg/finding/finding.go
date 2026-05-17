@@ -1,6 +1,8 @@
 package finding
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -105,7 +107,9 @@ func buildResult(findings []Finding) ScanResult {
 }
 
 func generateScanID() string {
-	return fmt.Sprintf("kuberneet-%d", time.Now().UnixNano())
+	b := make([]byte, 8)
+	_, _ = rand.Read(b)
+	return "kuberneet-" + hex.EncodeToString(b)
 }
 
 // filterRemediation strips remediation fields unless requested.

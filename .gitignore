@@ -56,3 +56,6 @@ temp/
 # Debug
 debug/
 __debug_bin
+
+# Internal audit docs (not for public repo)
+BUG_CATALOG.md
